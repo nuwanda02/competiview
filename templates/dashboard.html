@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard – CompetiView</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<header class="d-flex align-items-center justify-content-between py-3 mb-4 border-bottom">
+  <div class="d-flex align-items-center">
+    <img src="{{ url_for('static', filename='cvlogo.png') }}" alt="CompetiView Logo" height="200" class="me-3">
+    <div>
+      <p class="mb-0 fs-5 text-muted">Real-Time Tracking. Real-World Impact.</p>
+    </div>
+  </div>
+  <a href="/logout" class="btn btn-outline-danger">Logout</a>
+</header>
+
+<div class="container py-5">
+  <h2 class="mb-4">📊 Welcome, {{ user.email }}</h2>
+
+  <div class="mb-4">
+    <a href="/" class="btn btn-primary">+ Track a New Product</a>
+  </div>
+
+  <h4 class="mt-5">Your Tracked Products</h4>
+
+  {% if items %}
+    <ul class="list-group shadow-sm">
+      {% for entry in items %}
+        <li class="list-group-item">
+          <h5>{{ entry.item.title }}</h5>
+          <a href="{{ entry.item.url }}" target="_blank">{{ entry.item.url }}</a><br>
+          <small class="text-muted">Tracked on: {{ entry.item.created_at.strftime('%Y-%m-%d') }}</small><br>
+          <p class="mb-1">🔗 Competitors tracked: {{ entry.competitor_count }}</p>
+            <form method="post" action="{{ url_for('refresh_competitors', item_id=entry.item.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-sm btn-outline-secondary mt-1">
+            🔁 Refresh Competitors
+          </button>
+        </form>
+
+            {% if entry.suggested_price %}
+                <p class="mb-1 text-success">💡 AI Suggested Price: ${{ entry.suggested_price }}</p>
+            {% else %}
+                <p class="text-muted mb-1">No price suggestion available.</p>
+            {% endif %}
+
+            <p class="text-muted">
+                ⏱ Last checked: {{ entry.item.last_checked.strftime('%Y-%m-%d %H:%M') if entry.item.last_checked else 'Never' }}<br>
+                📣 Last alert: {{ entry.item.last_alert_summary or 'None' }}
+            </p>
+
+
+          <!-- Dropdown Toggle -->
+          <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#comp_{{ entry.item.id }}">
+            Show Competitors
+          </button>
+
+          <!-- Dropdown Content -->
+          <div class="collapse mt-2" id="comp_{{ entry.item.id }}">
+            {% if entry.competitors %}
+              <ul class="list-group mt-2">
+                {% for c in entry.competitors %}
+                  <li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>{{ c.title }}</strong><br>
+                        Price: ${{ c.price }}<br>
+                        <a href="{{ c.url }}" target="_blank">View</a>
+                    </div>
+                    <form method="post" action="/delete_competitor/{{ c.id }}" onsubmit="return confirm('Delete this competitor?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger ms-3">🗑</button>
+                    </form>
+                    </li>
+
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="text-muted mt-2">No competitors found.</p>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-muted">You haven't tracked any products yet.</p>
+  {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

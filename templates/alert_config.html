@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Set Alert Preferences - CompetiView</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    
+    <header class="d-flex align-items-center justify-content-between py-3 mb-4 border-bottom container">
+  <div class="d-flex align-items-center">
+    <img src="{{ url_for('static', filename='cvlogo.png') }}" alt="CompetiView Logo" height="50" class="me-3">
+    <div>
+      <p class="mb-0 fs-5 text-muted">Real-Time Tracking. Real-World Impact.</p>
+    </div>
+  </div>
+  <a href="/reset" class="btn btn-outline-danger">Reset</a>
+</header>
+
+<div class="container py-5">
+    <h1 class="text-center mb-5">🔔 Set Your Alert Preferences</h1>
+
+    <form method="post" action="/alert_config" class="card p-4 shadow-sm">
+        <div class="mb-4">
+            <h5>🔎 What would you like to track?</h5>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="track_price" id="track_price">
+                <label class="form-check-label" for="track_price">Track Price Changes</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="track_competitor" id="track_competitor">
+                <label class="form-check-label" for="track_new">Track New Competitors</label>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="mb-4">
+            <h5>📬 How do you want to receive alerts?</h5>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="notify_email" id="notify_email" onchange="toggleEmailInput()">
+                <label class="form-check-label" for="notify_email">Email</label>
+            </div>
+            <div id="email_input" style="display:none;" class="mt-2">
+                <input type="email" class="form-control" name="email_address" placeholder="Enter your email address">
+            </div>
+
+            <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" name="notify_telegram" id="notify_telegram" onchange="toggleTelegramInput()">
+                <label class="form-check-label" for="notify_telegram">Telegram</label>
+            </div>
+            <div id="telegram_input" style="display:none;" class="mt-2">
+                <input type="text" class="form-control" name="telegram_handle" placeholder="@yourhandle">
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100">Save Alert Settings</button>
+    </form>
+
+    {% if alert_saved %}
+    <div class="alert alert-success mt-4 text-center">
+        🎯 Your alert preferences have been saved successfully!
+    </div>
+    {% endif %}
+
+    <div class="text-center mt-4">
+        <a href="/" class="btn btn-outline-primary">Back to Home</a>
+    </div>
+</div>
+
+<script>
+function toggleEmailInput() {
+    document.getElementById('email_input').style.display = document.getElementById('notify_email').checked ? 'block' : 'none';
+}
+function toggleTelegramInput() {
+    document.getElementById('telegram_input').style.display = document.getElementById('notify_telegram').checked ? 'block' : 'none';
+}
+</script>
+
+<section class="bg-white p-4 mt-5 rounded shadow-sm container">
+  <h4>About CompetiView</h4>
+  <p>
+    CompetiView is a smart competitor tracking tool built for eBay and Amazon sellers who want to stay ahead.
+    Just enter your product URL, and CompetiView automatically analyzes and surfaces similar listings from competitors.
+    You can easily choose which competitors to monitor and set real-time alerts for price changes or new listings.
+    With CompetiView, you gain clear insights and automated tracking — helping you price strategically, react faster, and win in the marketplaces.
+  </p>
+</section>
+
+</body>
+</html>

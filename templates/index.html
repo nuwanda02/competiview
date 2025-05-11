@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CompetiView Competitor Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    
+    
+    <header class="d-flex align-items-center justify-content-between py-3 mb-4 border-bottom">
+  <div class="d-flex align-items-center">
+    <img src="{{ url_for('static', filename='cvlogo.png') }}" alt="CompetiView Logo" height="200" class="me-3">
+    <div>
+      <p class="mb-0 fs-5 text-muted">Real-Time Tracking. Real-World Impact.</p>
+    </div>
+  </div>
+        
+        <div class="d-flex align-items-center">
+  {% if current_user.is_authenticated %}
+    <span class="me-3 text-muted">Logged in as {{ current_user.email }}</span>
+    <a href="/logout" class="btn btn-outline-danger">Logout</a>
+  {% else %}
+    <a href="/login" class="btn btn-primary me-2">Login</a>
+    <a href="/register" class="btn btn-outline-secondary">Register</a>
+  {% endif %}
+</div>
+
+        
+</header>
+    
+    <a href="/dashboard" class="btn btn-outline-primary me-2">← Back to Dashboard</a>
+    <a href="/" class="btn btn-outline-primary me-2">Track Product</a>
+
+    <!-- Spinner Overlay -->
+    <div id="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+    
+    <div class="container py-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="text-center flex-grow-1">CompetiView Competitor Tracker</h1>
+            <a href="/reset" class="btn btn-outline-danger ms-3">Reset</a>
+        </div>
+
+        <!-- Spinner Styles -->
+    <style>
+        #loading-spinner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(255, 255, 255, 0.7);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 6px solid #0077b6;
+            border-top: 6px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+        
+        
+        <form method="post" action="/" class="card p-4 shadow-sm">
+            <div class="mb-3">
+                <label for="url" class="form-label">Enter Your eBay or Amazon Product URL:</label>
+                <input type="url" name="url" id="url" class="form-control" required>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Number of Competitors:</label>
+                    <select name="limit" class="form-select">
+                        <option value="10">Top 10</option>
+                        <option value="20">Top 20</option>
+                        <option value="30">Top 30</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Min Price (optional):</label>
+                    <input type="number" step="0.01" name="price_min" class="form-control">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Max Price (optional):</label>
+                    <input type="number" step="0.01" name="price_max" class="form-control">
+                </div>
+            </div>
+            <div class="form-check mb-3">
+                <input type="checkbox" name="free_shipping" id="free_shipping" class="form-check-input">
+                <label class="form-check-label" for="free_shipping">Only show Free Shipping items</label>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Find Competitors</button>
+        </form>
+
+        {% if title %}
+        <div class="mt-5">
+            <h2 class="text-center">Select Competitors to Track</h2>
+            <form method="post" action="/track">
+                <div class="d-flex justify-content-end mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll()">Select All</button>
+                </div>
+                <ul class="list-group">
+                    {% for comp in competitors %}
+                    <li class="list-group-item">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="track" value="{{ comp['url'] }}">
+                            <label class="form-check-label">
+                                <strong>{{ comp['title'] }}</strong> <br>
+                                Price: ${{ comp['price'] }}<br>
+                                <a href="{{ comp['url'] }}" target="_blank">View</a>
+                            </label>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-success">Track Selected</button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if selection_failed and competitors %}
+        <div class="alert alert-warning mt-3 text-center">
+            ⚠️ Please select at least one competitor to track.
+        </div>
+        {% endif %}
+
+        {% if selection_done %}
+        <div class="card mt-5 shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">🔔 Set Alert Preferences</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="/alert_config">
+                    <div class="mb-4">
+                        <h6 class="text-success">🔎 What would you like to track?</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="track_price" id="track_price">
+                            <label class="form-check-label" for="track_price">Track Price Changes</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="track_new" id="track_new">
+                            <label class="form-check-label" for="track_new">Track New Competitors</label>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="mb-4">
+                        <h6 class="text-success">📬 How do you want to receive alerts?</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="notify_email" id="notify_email" onchange="toggleEmailInput()">
+                            <label class="form-check-label" for="notify_email">Email</label>
+                        </div>
+                        <div id="email_input" style="display:none;" class="mt-2">
+                            <input type="email" class="form-control" name="email_address" placeholder="Enter your email address">
+                        </div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" name="notify_telegram" id="notify_telegram" onchange="toggleTelegramInput()">
+                            <label class="form-check-label" for="notify_telegram">Telegram</label>
+                        </div>
+                        <div id="telegram_input" style="display:none;" class="mt-2">
+                            <input type="text" class="form-control" name="telegram_handle" placeholder="@yourhandle">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Save Alert Settings</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if alert_saved %}
+        <div class="alert alert-success mt-5 text-center">
+            🎯 Your alert preferences have been saved successfully!
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    function selectAll() {
+        document.querySelectorAll('input[name="track"]').forEach(el => el.checked = true);
+    }
+    function toggleEmailInput() {
+        document.getElementById('email_input').style.display = document.getElementById('notify_email').checked ? 'block' : 'none';
+    }
+    function toggleTelegramInput() {
+        document.getElementById('telegram_input').style.display = document.getElementById('notify_telegram').checked ? 'block' : 'none';
+    }
+     // Spinner Activation
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("form").forEach(form => {
+            form.addEventListener("submit", function () {
+                document.getElementById("loading-spinner").style.display = "flex";
+            });
+        });
+    });    
+    </script>
+    
+    <section class="bg-white p-4 mt-5 rounded shadow-sm">
+  <h4>About CompetiView</h4>
+  <p>
+    CompetiView is a smart competitor tracking tool built for eBay and Amazon sellers who want to stay ahead.
+    Just enter your product URL, and CompetiView automatically analyzes and surfaces similar listings from competitors.
+    You can easily choose which competitors to monitor and set real-time alerts for price changes or new listings.
+    With CompetiView, you gain clear insights and automated tracking — helping you price strategically, react faster, and win in the marketplaces.
+  </p>
+</section>
+
+    
+</body>
+</html>

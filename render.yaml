@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: competiview
+    env: python
+    buildCommand: ""
+    startCommand: gunicorn competiview:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.10

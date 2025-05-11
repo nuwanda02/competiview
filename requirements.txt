@@ -1,0 +1,7 @@
+Flask
+Flask-Session
+SQLAlchemy
+playwright
+requests
+beautifulsoup4
+lxml
