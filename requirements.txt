@@ -7,3 +7,4 @@ beautifulsoup4
 lxml
 gunicorn
 flask-login
+flask_sqlalchemy
