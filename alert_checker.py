@@ -5,9 +5,10 @@ import datetime
 from playwright.async_api import async_playwright
 from flask import Flask
 import os
-from models import db, TrackedItem, AlertSetting, CompetitorItem
 from urllib.parse import urlparse
-from notifications import build_full_html_email, send_email, send_telegram_message
+from notifications import build_full_html_email, send_email
+from models import db, TrackedItem, CompetitorItem
+from models import AlertSetting
 
 # --- Set up Flask app and DB ---
 app = Flask(__name__)
@@ -139,7 +140,6 @@ async def check_alerts():
                     platform = "amazon" if "amazon.com" in item.url else "ebay"
                     search_url = build_search_url(platform, item.keywords or "")
                     is_amazon = platform == "amazon"
-                    alert = AlertSetting.query.filter_by(tracked_item_id=item.id).first()
                     competitors = CompetitorItem.query.filter_by(tracked_item_id=item.id).all()
                     min_price = item.price_min if item.price_min is not None else 0
                     max_price = item.price_max if item.price_max is not None else float('inf')
@@ -206,15 +206,13 @@ async def check_alerts():
                     # 🔔 Send notifications
                     plain_message = f"🛒 Tracking Item: {item.title or item.url}\n\n" + "\n".join(summary)
                     plain_message += f"\n📅 Checked on: {item.last_checked.strftime('%Y-%m-%d %H:%M')}"
-
+                    alert = AlertSetting.query.filter_by(tracked_item_id=item.id).first()
                     if alert.email_address:
                         html_body = build_full_html_email(price_changes, [c.url for c in disappeared], new_competitors,
                                                           no_changes=not any([
                                                               price_changes, disappeared, new_competitors]))
                         send_email(alert.email_address, f"CompetiView Alert - {item.title}", plain_message, html_body)
 
-                    if alert.telegram_handle:
-                        send_telegram_message(alert.telegram_handle, plain_message)
 
                     db.session.commit()
                     print(f"✅ {item.title or item.url}: {len(price_changes)} price changes, {len(disappeared)} removed, {len(new_competitors)} added")
