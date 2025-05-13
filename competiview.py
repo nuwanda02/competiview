@@ -31,8 +31,6 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///competiview.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
 @login_manager.user_loader
@@ -110,7 +108,7 @@ def normalize_amazon_url(url):
     return f"https://www.amazon.com/dp/{asin}" if asin else url
 
 
-def extract_title_and_competitors(url, max_items=10, price_min=None, price_max=None, free_shipping_only=False):
+def extract_title_and_competitors(url, max_items=10, price_min=None, price_max=None):
     title = None
     keywords = []
     results = []
@@ -153,35 +151,62 @@ def extract_title_and_competitors(url, max_items=10, price_min=None, price_max=N
                 for i in range(item_count):
                     if added >= max_items:
                         break
+
+                    print(f"\n🔍 Processing eBay item {i}")
+                    item = items.nth(i)
+
                     try:
-                        item = items.nth(i)
-                        title_text = item.locator("div.s-item__title span[role='heading']").text_content(timeout=3000)
-                        title_text = title_text.replace("New Listing", "").strip()
-                        if 'shop on ebay' in title_text.lower():
+                        title_text = item.locator("div.s-item__title span[role='heading']").text_content(
+                            timeout=3000).strip()
+                        title_text = title_text.replace("New Listing", "")
+                        print("✅ Title:", title_text)
+                        if not title_text or "shop on ebay" in title_text.lower():
+                            print("❌ Skipped: Invalid title")
                             continue
-                        price_text = item.locator("span.s-item__price").inner_text(timeout=3000)
-                        price = float(re.sub(r'[^0-9.]', '', price_text.split('-')[0]))
+                    except Exception as e:
+                        print("❌ Skipped: Failed to get title —", e)
+                        continue
+
+                    try:
+                        price_text = item.locator("span.s-item__price").first.inner_text(timeout=3000).strip()
+                        print("✅ Raw price text:", price_text)
+                        price_str = price_text.split('-')[0].strip()
+                        price = float(re.sub(r"[^\d.]", "", price_str))
+                        print("✅ Parsed price:", price)
+                    except Exception as e:
+                        print("❌ Skipped: Failed to get price —", e)
+                        continue
+
+                    try:
                         link = item.locator("a.s-item__link").get_attribute("href")
-                        if link and url.strip('/') in link.strip('/'):
-                            continue
-                        html_preview = item.inner_html()
-                        if free_shipping_only and not ("free" in html_preview.lower() and "shipping" in html_preview.lower()):
-                            continue
-                        if price_min is not None and price < price_min:
-                            continue
-                        if price_max is not None and price > price_max:
-                            continue
+                        print("✅ Link:", link)
                         if link and '?' in link:
                             link = link.split('?')[0]
-                        results.append({
-                            "title": title_text,
-                            "price": price,
-                            "url": normalize_amazon_url(link)
-                        })
-
-                        added += 1
                     except Exception as e:
-                        print(f"⚠️ Error processing eBay item {i}: {e}")
+                        print("❌ Skipped: Failed to get link —", e)
+                        continue
+
+                    if not link or canonical_url(link) == canonical_url(url):
+                        print("❌ Skipped: Duplicate or invalid link")
+                        continue
+
+                    html_preview = item.inner_html()
+
+                    if price_min is not None and price < price_min:
+                        print(f"❌ Skipped: Price {price} < min {price_min}")
+                        continue
+                    if price_max is not None and price > price_max:
+                        print(f"❌ Skipped: Price {price} > max {price_max}")
+                        continue
+
+                    print("✅ Competitor added.")
+                    results.append({
+                        "title": title_text,
+                        "price": price,
+                        "url": normalize_amazon_url(link)  # or canonical_url(link) if you're not on Amazon
+                    })
+                    added += 1
+
 
             elif platform == "amazon":
                 page.goto(url, timeout=20000)
@@ -311,15 +336,13 @@ def track_new():
         except:
             price_max = None
 
-        free_shipping = request.form.get('free_shipping') == 'on'
-
         url = request.form['url']
         session['source_url'] = canonical_url(url)
         session['min_price'] = price_min
         session['max_price'] = price_max
         session['max_competitors'] = max_items
 
-        title, keywords, competitors, search_url = extract_title_and_competitors(url, max_items, price_min, price_max, free_shipping)
+        title, keywords, competitors, search_url = extract_title_and_competitors(url, max_items, price_min, price_max)
         session['extracted_keywords'] = keywords
         session['product_title'] = title
         session['search_url'] = search_url
@@ -394,52 +417,23 @@ def track():
 
     session['track_count'] = len(selected_competitors)
     session['selection_done'] = True
-    return redirect(url_for('alert_config'))
+    # Automatically create alert settings using user's registered email
+    existing_alert = AlertSetting.query.filter_by(tracked_item_id=item.id).first()
+    if not existing_alert:
+        alert = AlertSetting(
+            tracked_item_id=item.id,
+            user_id=current_user.id,
+            price_alert_enabled=True,
+            stock_alert_enabled=True,
+            new_competitor_alert_enabled=True,
+            email_address=current_user.email  # ✅ Use user's email
+        )
+        db.session.add(alert)
+        db.session.commit()
 
-@app.route('/alert_config', methods=['GET', 'POST'])
-@login_required
-def alert_config():
-    if request.method == 'POST':
-        email = request.form.get('email_address') if 'notify_email' in request.form else None
-        telegram = request.form.get('telegram_handle') if 'notify_telegram' in request.form else None
+    session['alert_saved'] = True
+    return redirect(url_for('track_confirmation'))
 
-        if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            email = None
-        if telegram and not telegram.startswith("@"):
-            telegram = None
-
-        url = session.get('source_url')
-        tracked_item = TrackedItem.query.filter_by(url=url, user_id=current_user.id).first()
-
-        if tracked_item:
-            existing_alert = AlertSetting.query.filter_by(tracked_item_id=tracked_item.id).first()
-
-            if existing_alert:
-                alert = existing_alert
-            else:
-                alert = AlertSetting(
-                    tracked_item_id=tracked_item.id,
-                    user_id=current_user.id  # NEW
-                )
-
-            alert.price_alert_enabled = 'track_price' in request.form
-            alert.stock_alert_enabled = 'track_new' in request.form
-            alert.new_competitor_alert_enabled = 'track_competitor' in request.form
-            alert.email_address = email  # ✅ NEW
-            alert.telegram_handle = telegram  # ✅ NEW
-
-            db.session.add(alert)
-            db.session.commit()
-            print("✅ Alert settings updated for item:", tracked_item.url)
-
-
-        else:
-            flash("No tracked item found to attach alert to.")
-
-        session['alert_saved'] = True
-        return redirect(url_for('track_confirmation'))
-
-    return render_template('alert_config.html')
 
 @app.route('/track/confirmation')
 @login_required
@@ -569,6 +563,26 @@ def refresh_competitors(item_id):
     db.session.commit()
     flash("✅ Competitors refreshed successfully!", "success")
     return redirect(url_for('dashboard'))
+
+@app.route('/toggle_alerts/<int:item_id>', methods=['POST'])
+@login_required
+def toggle_alerts(item_id):
+    alert = AlertSetting.query.filter_by(tracked_item_id=item_id, user_id=current_user.id).first()
+    if not alert:
+        flash("Alert setting not found.", "danger")
+        return redirect(url_for('dashboard'))
+
+    status = request.form.get('status')
+    if status == 'off':
+        alert.email_address = None
+        flash("✅ Email alerts deactivated.", "info")
+    elif status == 'on':
+        alert.email_address = current_user.email
+        flash("✅ Email alerts activated.", "success")
+
+    db.session.commit()
+    return redirect(url_for('dashboard'))
+
 
 @app.route('/')
 @login_required
