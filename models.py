@@ -23,7 +23,6 @@ class AlertSetting(db.Model):
     stock_alert_enabled = db.Column(db.Boolean, default=False)
     new_competitor_alert_enabled = db.Column(db.Boolean, default=False)
     email_address = db.Column(db.Text)
-    telegram_handle = db.Column(db.Text)
 
 
 class CompetitorItem(db.Model):
