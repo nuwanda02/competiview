@@ -77,23 +77,3 @@ def send_email(recipient, subject, plain_body, html_body=None):
     except Exception as e:
         print(f"❗ Failed to send email: {e}")
 
-
-def send_telegram_message(handle, message):
-    # You need to create a Telegram bot and get the TOKEN
-    bot_token = "7692153273:AAE44q7SHS-XydFc3knv0M4bcCY7WYwacZ0"
-    chat_id = handle.replace("@", "")  # remove @ symbol
-    send_text = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-
-    payload = {
-        'chat_id': chat_id,
-        'text': message
-    }
-    try:
-        response = requests.post(send_text, data=payload)
-        if response.status_code == 200:
-            print(f"📩 Telegram message sent to {handle}")
-        else:
-            print(f"❗ Failed to send Telegram message: {response.text}")
-    except Exception as e:
-        print(f"❗ Telegram error: {e}")
-
