@@ -545,7 +545,7 @@ def refresh_competitors(item_id):
     max_items = item.max_competitors or 10
 
     title, keywords, competitors, _ = extract_title_and_competitors(
-        item.url, max_items, price_min, price_max, False
+        item.url, max_items, price_min, price_max
     )
 
     # Clear existing competitors
